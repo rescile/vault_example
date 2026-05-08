@@ -16,7 +16,7 @@ rescile-ce --vault data/vault.json serve
 
 > If `data/vault.json` does not exist, it will be initialised automatically.
 
-The Vault API is then available at `http://localhost:7600/vault`.
+The the UI is then available at `http://localhost:7600`.
 
 ---
 
