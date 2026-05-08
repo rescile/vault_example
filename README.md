@@ -202,3 +202,5 @@ query VaultProvisioningTopology {
 ```
 
 This returns every Rescile-managed vault with its secrets, and every client with the secrets it consumes — a complete, auditable view of who has access to what.
+
+Further reading: https://docs.rescile.com
