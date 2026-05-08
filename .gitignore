@@ -1,0 +1,7 @@
+# direnv
+.direnv
+/direnv
+/direnv.test
+
+# rescile
+.rescile/.bin/

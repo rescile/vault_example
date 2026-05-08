@@ -1,0 +1,2 @@
+name,provider,url,description
+enterprise-vault,rescile,http://localhost:7600,Primary Rescile Vault for automated provisioning

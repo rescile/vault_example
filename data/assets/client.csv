@@ -1,0 +1,4 @@
+name,secret,vault_role,description
+backend-server-01,"db-password,api-token",Member,Primary application server
+backend-server-02,"db-password,api-token",Member,Secondary application server
+monitoring-agent-01,monitor-token,Reader,Monitoring agent — read-only

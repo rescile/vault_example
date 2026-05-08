@@ -1,0 +1,62 @@
+# Iterate over vault resources that are managed by the Rescile Vault backend.
+# The `provider = "rescile"` property is the match_on discriminator — the same
+# property used in content/reference/secrets.md to identify Rescile-native vaults.
+origin_resource = "vault"
+
+[[output]]
+match_on = [{ property = "provider", value = "rescile" }]
+resource_type = "provision_script"
+name = "seed-vault-{{ origin_resource.name }}"
+filename = "seed-{{ origin_resource.name }}.sh"
+mimetype = "text/x-shellscript"
+template = '''
+#!/usr/bin/env bash
+# Auto-generated orchestrator seed script for vault: {{ origin_resource.name }}
+# Origin resource: vault / provider: rescile
+set -euo pipefail
+
+export RESCILE_VAULT_URL="{{ origin_resource.url }}"
+export RESCILE_VAULT_CLIENTNAME="admin-orchestrator"
+export RESCILE_VAULT_PASSWORD="${ADMIN_VAULT_PASSWORD}"
+
+# - Step 1: Discover unique collections from the secrets stored in this vault -
+# Each unique `collection` value on a secret becomes one vault collection.
+# Clients linked to secrets in the same collection share access to it.
+{%- set_global seen_collections = [] %}
+{%- for secret in origin_resource.secret | default(value=[]) %}
+  {%- if secret.collection not in seen_collections %}
+    {%- set_global seen_collections = seen_collections | concat(with=[secret.collection]) %}
+
+# - Collection: {{ secret.collection }} ──
+rescile-ce vault collection create "{{ secret.collection }}" || true
+  {%- endif %}
+{%- endfor %}
+
+# - Step 2: Pre-seed secrets that are marked pre_seed=true -
+{%- for secret in origin_resource.secret | default(value=[]) %}
+  {%- if secret.pre_seed %}
+# Secret: {{ secret.name }} (collection: {{ secret.collection }})
+# Omitting the value triggers auto-generation of a strong random secret.
+rescile-ce vault secret put "{{ secret.collection }}" "{{ secret.name }}"
+  {%- endif %}
+{%- endfor %}
+
+# - Step 3: Invite pre-provisioned clients -
+# Traverse: vault -> secret -> client (via USES_SECRET back-link)
+# Clients that share the same collection receive one invite token each.
+{%- for secret in origin_resource.secret | default(value=[]) %}
+  {%- for client in secret.client | default(value=[]) %}
+TOKEN=$(rescile-ce vault collection invite "{{ secret.collection }}" \
+  --client "{{ client.name }}" \
+  --validity 1h)
+echo "export RESCILE_VAULT_INVITE_TOKEN=${TOKEN}" > /tmp/invite_{{ client.name }}.env
+# Optionally enforce the role declared on the client asset
+  {%- if client.vault_role == "Reader" %}
+rescile-ce vault collection role "{{ secret.collection }}" \
+  --client "{{ client.name }}" \
+  --role "Reader"
+  {%- endif %}
+  {%- endfor %}
+{%- endfor %}
+'''
+

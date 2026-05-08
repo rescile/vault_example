@@ -1,0 +1,32 @@
+# Iterate over every pre-provisioned client node.
+# The client knows which secrets it needs via the USES_SECRET edges (the `secret` relation).
+origin_resource = "client"
+
+[[output]]
+resource_type = "provision_script"
+name = "init-client-{{ origin_resource.name }}"
+filename = "init-{{ origin_resource.name }}.sh"
+mimetype = "text/x-shellscript"
+template = '''
+#!/usr/bin/env bash
+# Auto-generated client provisioning script for: {{ origin_resource.name }}
+set -euo pipefail
+
+export RESCILE_VAULT_CLIENTNAME="{{ origin_resource.name }}"
+export RESCILE_VAULT_URL="{{ origin_resource.secret[0].vault[0].url }}"
+# If RESCILE_VAULT_INVITE_TOKEN is not set the client will attempt auto-discovery
+# via GET /vault/v1/invite/{{ origin_resource.name }}
+# Alternatively inject it from the seed script: source /tmp/invite_{{ origin_resource.name }}.env
+
+# Retrieve every secret this client needs.
+# The graph traversal secret -> vault gives us the collection name.
+{%- for secret in origin_resource.secret | default(value=[]) %}
+{{ secret.name | upper }}=$(rescile-ce vault secret get "{{ secret.collection }}" "{{ secret.name }}")
+{%- endfor %}
+
+# Apply the retrieved secrets to the local workload configuration.
+{%- for secret in origin_resource.secret | default(value=[]) %}
+echo "${  {{- secret.name | upper -}}  }" > /etc/{{ origin_resource.name }}/{{ secret.name }}.key
+{%- endfor %}
+'''
+
